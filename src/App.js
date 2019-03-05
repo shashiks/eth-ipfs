@@ -123,63 +123,69 @@ class App extends Component {
 	getDoc = () => {
         this.reset();
         let docId = this.refs.pDocId.value;
-        // let docId = 'Qme6PDa1TNjuquYVVyQT1vMwv9k7RVergQfu2XiDRTieeq';
         console.log('doc id ' + docId);
         let currUser = window.web3.eth.defaultAccount;
         console.log('Curr user : ' + currUser);
-        
-        docRepo.deployed().then(function(instance) {
-            console.log('instance ' + instance.address);
-            let isPermitted = false;
-            instance.isAuthorized.call(docId, currUser).then(function(authed) {
-                console.log('authed ' +JSON.stringify(authed));
-                if(authed.length == 0) {
-                    me.setState({msg : "ERROR :: No user authorized for document or no document."}); 
-                    return;
-                }
-                for(let i=0; i< authed.length; i++) {
-                    console.log('comparing ' + (authed[i] === currUser.toString()));
-                    if(authed[i] === currUser.toString()) {
-                        isPermitted = true;
-                        break;
-                    }
-                }
-                console.log('isPermi ' + isPermitted);
-                if(isPermitted === true) {
-                    ipfs.get(docId, function (err, files) {
-                        files.forEach((file) => {
-                        //   console.log(file.path);
-                          me.setState({msg : " File Content => " +  file.content.toString('utf8')});
-                        //   console.log(file.content.toString('utf8'))
+        try {
+            docRepo.deployed().then(function(instance) {
+                console.log('instance ' + instance.address);
+                instance.isAuthorized.call(docId, currUser).then(function(authed) {
+                    console.log('authed ' + authed);
+                    // for(let i=0; i< authed.length; i++) {
+                    //     console.log('comparing ' + (authed[i] === currUser.toString()));
+                    //     if(authed[i] === currUser.toString()) {
+                    //         isPermitted = true;
+                    //         break;
+                    //     }
+                    // }
+                    // console.log('isPermi ' + isPermitted);
+                    if(authed === true) {
+                        ipfs.get(docId, function (err, files) {
+                            files.forEach((file) => {
+                            //   console.log(file.path);
+                            me.setState({msg : " File Content => " +  file.content.toString('utf8')});
+                            //   console.log(file.content.toString('utf8'))
+                            })
                         })
-                      })
-                } else {
-                    me.setState({msg: "ERROR :: User not authorized to view document"});
-                }
-            });
-        });		
+                    } else {
+                        me.setState({msg: "ERROR :: User not authorized to view document"});
+                    }
+                });
+            });	
+        } catch (err) {
+            console.error("Err reading doc  "+ err);
+            me.setState({msg : " connecting to IPFS " +  err});
+            return;
+        }	
     }
     
     shareDoc = () => {
-        console.log('add a doc');
         this.reset();
         let docId = this.refs.pShareDocId.value;
+        let shareTo = this.refs.pShareAddr.value;
         let currUser = window.web3.eth.defaultAccount;
         console.log('Curr user : ' + currUser);
         console.log('doc id ' + docId);
-        docRepo.deployed().then(function(instance) {
-            console.log('instance ' + instance.address);
-            try {
-                instance.permitAccessToAddr.sendTransaction(docId, {gas:300000, from: window.web3.eth.defaultAccount}).then( function(id) {
-                    console.log('eth txn id' + id);
-                    me.setState({msg : " ETH Txn Id => " +  id});
-                });
-            } catch (err) {
-                console.error("Err Addinng new Doc  "+ err);
-                me.setState({msg : " ERR writing to ETH " +  err});
-                return;
-            }
-        });
+        try {
+            docRepo.deployed().then(function(instance) {
+                console.log('instance ' + instance.address);
+                try {
+                    instance.permitAccessToAddr.sendTransaction(docId, shareTo, {gas:300000, from: window.web3.eth.defaultAccount}).then( function(id) {
+                        console.log('eth txn id' + id);
+                        me.setState({msg : " ETH Txn Id => " +  id});
+                    });
+                } catch (err) {
+                    console.error("Err sharingn new Doc  "+ err);
+                    me.setState({msg : " ERR sharing document " +  err});
+                    return;
+                }
+            });
+        } catch (err) {
+            console.error("Err sharingn new Doc  "+ err);
+            me.setState({msg : "User not authorized to share document" +  err});
+            return;
+        }
+
     }
     
     clearAll() {
